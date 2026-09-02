@@ -48,8 +48,8 @@ for (let i = 0; i < count; i++) {
   triangles.push({
     x: Math.random() * window.innerWidth,
     y: Math.random() * window.innerHeight,
-    vx: (Math.random() - 0.5) * 12,
-    vy: (Math.random() - 0.5) * 12,
+    vx: (Math.random() - 0.5) * 2,
+    vy: (Math.random() - 0.5) * 2,
     angle: Math.random() * Math.PI * 2,
     spin: (Math.random() - 0.5) * 0.4,
     baseR: 12 + Math.random() * 32,
@@ -57,14 +57,24 @@ for (let i = 0; i < count; i++) {
   });
 }
 
+let idleFrames = 0;
+const RAMP_TIME = 240; // ~4 seconds of stillness to reach maximum chaos
+
 function animate() {
   currentSpeed *= 0.85;
   smoothSpeed += (currentSpeed - smoothSpeed) * 0.1;
 
   const isMoving = smoothSpeed > 4;
-  const chaos = isMoving ? 0 : 1;
 
-  // Dark motion trail
+  if (isMoving) {
+    idleFrames = Math.max(0, idleFrames - 12); // Rapid recovery to order on movement
+  } else {
+    idleFrames = Math.min(RAMP_TIME, idleFrames + 1); // Smooth chaos build-up
+  }
+
+  // Smooth chaos factor from 0.0 (stillness start) to 1.0 (total turmoil)
+  const chaos = idleFrames / RAMP_TIME;
+
   ctx.fillStyle = 'rgba(3, 0, 8, 0.2)';
   ctx.fillRect(0, 0, width, height);
 
@@ -75,51 +85,60 @@ function animate() {
     const t = triangles[i];
 
     if (chaos > 0) {
-      // Erratic trajectory thrusts
-      t.vx += (Math.random() - 0.5) * 5;
-      t.vy += (Math.random() - 0.5) * 5;
+      // Thrust acceleration scales with idle duration
+      const thrust = chaos * chaos * 4;
+      t.vx += (Math.random() - 0.5) * thrust;
+      t.vy += (Math.random() - 0.5) * thrust;
 
-      // Speed cap for chaotic flying
+      // Speed cap scales up over time
+      const maxVel = 1.5 + chaos * 22.5;
       const speed = Math.hypot(t.vx, t.vy);
-      if (speed > 24) {
-        t.vx = (t.vx / speed) * 24;
-        t.vy = (t.vy / speed) * 24;
+      if (speed > maxVel) {
+        t.vx = (t.vx / speed) * maxVel;
+        t.vy = (t.vy / speed) * maxVel;
       }
 
       t.x += t.vx;
       t.y += t.vy;
-      t.angle += t.spin * 4;
+      t.angle += t.spin * (0.2 + chaos * 3.8);
 
-      // Wrap around screen boundaries
+      // Screen boundary wrap
       if (t.x < -60) t.x = width + 60;
       if (t.x > width + 60) t.x = -60;
       if (t.y < -60) t.y = height + 60;
       if (t.y > height + 60) t.y = -60;
     } else {
-      // Dampen velocity when cursor is moving
-      t.vx *= 0.88;
-      t.vy *= 0.88;
+      t.vx *= 0.85;
+      t.vy *= 0.85;
       t.x += t.vx;
       t.y += t.vy;
       t.angle += 0.02;
     }
 
-    // Dynamic shrink & enlarge scale multiplier
-    const scaleNoise = Math.sin(time * 9 + t.seed) * Math.cos(time * 4 + i);
-    const sizeMultiplier = chaos > 0 ? Math.max(0.15, 1.2 + scaleNoise * 1.8) : 1;
-    const r = t.baseR * sizeMultiplier;
+    // Positional jiggle/glitch displacement (starts subtle, becomes intense)
+    const glitchX = (Math.random() - 0.5) * chaos * 8;
+    const glitchY = (Math.random() - 0.5) * chaos * 8;
 
-    // Strobe flash
-    const flashStrobe = chaos > 0 && Math.sin(time * 30 + t.seed) > 0.1;
+    // Size pulsing scales with idle intensity
+    const scaleNoise = Math.sin(time * (4 + chaos * 8) + t.seed);
+    const sizeMultiplier = 1 + scaleNoise * (chaos * 1.8);
+    const r = Math.max(3, t.baseR * sizeMultiplier);
+
+    // Strobe frequency increases over time
+    const flashStrobe = chaos > 0.15 && Math.sin(time * (10 + chaos * 30) + t.seed) > (1 - chaos * 0.9);
     const lightness = flashStrobe ? 90 : 55;
 
-    const color = chaos > 0 
-      ? `hsl(${(dynamicHue + i * 15 + t.x * 0.1) % 360}, 100%, ${lightness}%)` 
-      : '#00f3ff';
+    // Gradual color transition: pure cyan (185 deg) -> dynamic rainbow spectrum
+    const targetHue = (dynamicHue + i * 15 + t.x * 0.1) % 360;
+    const blendedHue = (185 + (targetHue - 185) * chaos + 360) % 360;
 
-    const alpha = flashStrobe ? 1.0 : 0.7;
+    const color = chaos === 0 
+      ? '#00f3ff' 
+      : `hsl(${blendedHue}, 100%, ${lightness}%)`;
 
-    drawTriangle(t.x, t.y, r, t.angle, alpha, color);
+    const alpha = flashStrobe ? 1.0 : (0.7 + chaos * 0.3);
+
+    drawTriangle(t.x + glitchX, t.y + glitchY, r, t.angle, alpha, color);
   }
 
   requestAnimationFrame(animate);
