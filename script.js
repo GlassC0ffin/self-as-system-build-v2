@@ -41,19 +41,20 @@ window.addEventListener('mousemove', (e) => {
   lastMouse.y = e.clientY;
 });
 
-const cols = 12;
-const rows = 8;
-const cells = [];
-for (let r = 0; r < rows; r++) {
-  for (let c = 0; c < cols; c++) {
-    cells.push({
-      col: c,
-      row: r,
-      life: Math.random(),
-      baseAngle: (r * cols + c) * (Math.PI / 6),
-      seed: Math.random() * 1000
-    });
-  }
+const count = 90;
+const triangles = [];
+
+for (let i = 0; i < count; i++) {
+  triangles.push({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    vx: (Math.random() - 0.5) * 12,
+    vy: (Math.random() - 0.5) * 12,
+    angle: Math.random() * Math.PI * 2,
+    spin: (Math.random() - 0.5) * 0.4,
+    baseR: 12 + Math.random() * 32,
+    seed: Math.random() * 1000
+  });
 }
 
 function animate() {
@@ -63,47 +64,62 @@ function animate() {
   const isMoving = smoothSpeed > 4;
   const chaos = isMoving ? 0 : 1;
 
-  ctx.fillStyle = 'rgba(3, 0, 8, 0.25)';
+  // Dark motion trail
+  ctx.fillStyle = 'rgba(3, 0, 8, 0.2)';
   ctx.fillRect(0, 0, width, height);
 
-  const cellW = width / cols;
-  const cellH = height / rows;
-  const maxR = Math.min(cellW, cellH) * 0.35;
-
   const time = Date.now() * 0.005;
-  const dynamicHue = (Date.now() * 0.6) % 360;
+  const dynamicHue = (Date.now() * 0.8) % 360;
 
-  for (const cell of cells) {
-    // Wave decay propagation pattern
-    const waveDecay = Math.sin(time * 4 + cell.col * 0.6 + cell.row * 0.6) * 0.02;
-    const decayRate = isMoving ? 0.002 : Math.max(0.01, 0.035 + waveDecay);
-    cell.life -= decayRate;
-    if (cell.life <= 0) cell.life = 1;
+  for (let i = 0; i < triangles.length; i++) {
+    const t = triangles[i];
 
-    // Positional floating and chaotic drift
-    const moveRadius = chaos * 30;
-    const driftX = Math.sin(time * 3 + cell.seed) * moveRadius;
-    const driftY = Math.cos(time * 2 + cell.seed) * moveRadius;
+    if (chaos > 0) {
+      // Erratic trajectory thrusts
+      t.vx += (Math.random() - 0.5) * 5;
+      t.vy += (Math.random() - 0.5) * 5;
 
-    const cx = cell.col * cellW + cellW / 2 + driftX;
-    const cy = cell.row * cellH + cellH / 2 + driftY;
+      // Speed cap for chaotic flying
+      const speed = Math.hypot(t.vx, t.vy);
+      if (speed > 24) {
+        t.vx = (t.vx / speed) * 24;
+        t.vy = (t.vy / speed) * 24;
+      }
 
-    // Spiral rotation
-    const chaosRotation = (1 - cell.life) * Math.PI * (1 + chaos * 12);
-    const rotation = cell.baseAngle + chaosRotation;
-    const r = maxR * (0.2 + cell.life * 0.8);
+      t.x += t.vx;
+      t.y += t.vy;
+      t.angle += t.spin * 4;
 
-    // Rapid strobe flashing during stillness
-    const flashStrobe = chaos > 0 && Math.sin(time * 25 + cell.seed) > 0.3;
-    const lightness = flashStrobe ? 85 : 55;
+      // Wrap around screen boundaries
+      if (t.x < -60) t.x = width + 60;
+      if (t.x > width + 60) t.x = -60;
+      if (t.y < -60) t.y = height + 60;
+      if (t.y > height + 60) t.y = -60;
+    } else {
+      // Dampen velocity when cursor is moving
+      t.vx *= 0.88;
+      t.vy *= 0.88;
+      t.x += t.vx;
+      t.y += t.vy;
+      t.angle += 0.02;
+    }
+
+    // Dynamic shrink & enlarge scale multiplier
+    const scaleNoise = Math.sin(time * 9 + t.seed) * Math.cos(time * 4 + i);
+    const sizeMultiplier = chaos > 0 ? Math.max(0.15, 1.2 + scaleNoise * 1.8) : 1;
+    const r = t.baseR * sizeMultiplier;
+
+    // Strobe flash
+    const flashStrobe = chaos > 0 && Math.sin(time * 30 + t.seed) > 0.1;
+    const lightness = flashStrobe ? 90 : 55;
 
     const color = chaos > 0 
-      ? `hsl(${(dynamicHue + cell.col * 25 + cell.row * 15) % 360}, 100%, ${lightness}%)` 
+      ? `hsl(${(dynamicHue + i * 15 + t.x * 0.1) % 360}, 100%, ${lightness}%)` 
       : '#00f3ff';
 
-    const alpha = flashStrobe ? 1.0 : Math.max(0.25, cell.life);
+    const alpha = flashStrobe ? 1.0 : 0.7;
 
-    drawTriangle(cx, cy, r, rotation, alpha, color);
+    drawTriangle(t.x, t.y, r, t.angle, alpha, color);
   }
 
   requestAnimationFrame(animate);
