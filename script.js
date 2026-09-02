@@ -24,18 +24,15 @@ function initAudio() {
 function playGlitchSound(chaos) {
   if (!audioCtx || audioCtx.state !== 'running') return;
 
-  // Probability of glitch noise increases as chaos builds
   if (Math.random() > chaos * 0.4) return;
 
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
 
-  // Erratic pitch jumps: low tones during order, high screeches during chaos
   const baseFreq = 80 + Math.random() * (chaos * 1800);
   osc.type = Math.random() > 0.5 ? 'sawtooth' : 'square';
   osc.frequency.setValueAtTime(baseFreq, audioCtx.currentTime);
 
-  // Short burst duration
   const duration = 0.02 + Math.random() * (0.05 + chaos * 0.1);
   const volume = (0.05 + chaos * 0.15) * (Math.random() * 0.8 + 0.2);
 
@@ -73,8 +70,11 @@ let lastMouse = { x: 0, y: 0 };
 let currentSpeed = 0;
 let smoothSpeed = 0;
 
+// Direct click listener unlocks Web Audio on browser autoplay policies
+window.addEventListener('click', initAudio);
+
 window.addEventListener('mousemove', (e) => {
-  initAudio(); // User interaction initializes audio context for browser autoplay policies
+  initAudio();
   const dx = e.clientX - lastMouse.x;
   const dy = e.clientY - lastMouse.y;
   currentSpeed = Math.hypot(dx, dy);
@@ -99,7 +99,7 @@ for (let i = 0; i < count; i++) {
 }
 
 let idleFrames = 0;
-const RAMP_TIME = 600; // ~10 seconds of stillness for peak chaos
+const RAMP_TIME = 600; // ~10 seconds of full stillness for peak chaos
 
 function animate() {
   currentSpeed *= 0.85;
@@ -115,7 +115,6 @@ function animate() {
 
   const chaos = idleFrames / RAMP_TIME;
 
-  // Trigger procedural glitch sounds based on current idle chaos intensity
   if (chaos > 0.05) {
     playGlitchSound(chaos);
   }
