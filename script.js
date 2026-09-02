@@ -58,7 +58,8 @@ for (let i = 0; i < count; i++) {
 }
 
 let idleFrames = 0;
-const RAMP_TIME = 240; // ~4 seconds of stillness to reach maximum chaos
+// Increased to 600 frames (~10 seconds of full stillness for peak chaos)
+const RAMP_TIME = 600; 
 
 function animate() {
   currentSpeed *= 0.85;
@@ -67,12 +68,12 @@ function animate() {
   const isMoving = smoothSpeed > 4;
 
   if (isMoving) {
-    idleFrames = Math.max(0, idleFrames - 12); // Rapid recovery to order on movement
+    idleFrames = Math.max(0, idleFrames - 15); // Fast snap back to order when moving
   } else {
-    idleFrames = Math.min(RAMP_TIME, idleFrames + 1); // Smooth chaos build-up
+    idleFrames = Math.min(RAMP_TIME, idleFrames + 1); // Extended, slow-burn chaos build-up
   }
 
-  // Smooth chaos factor from 0.0 (stillness start) to 1.0 (total turmoil)
+  // Smooth chaos factor from 0.0 (movement) to 1.0 (full 10-second idle decay)
   const chaos = idleFrames / RAMP_TIME;
 
   ctx.fillStyle = 'rgba(3, 0, 8, 0.2)';
@@ -85,12 +86,12 @@ function animate() {
     const t = triangles[i];
 
     if (chaos > 0) {
-      // Thrust acceleration scales with idle duration
+      // Acceleration ramps up gradually
       const thrust = chaos * chaos * 4;
       t.vx += (Math.random() - 0.5) * thrust;
       t.vy += (Math.random() - 0.5) * thrust;
 
-      // Speed cap scales up over time
+      // Speed cap scales slowly over the 10-second ramp
       const maxVel = 1.5 + chaos * 22.5;
       const speed = Math.hypot(t.vx, t.vy);
       if (speed > maxVel) {
@@ -102,7 +103,7 @@ function animate() {
       t.y += t.vy;
       t.angle += t.spin * (0.2 + chaos * 3.8);
 
-      // Screen boundary wrap
+      // Boundary wrap
       if (t.x < -60) t.x = width + 60;
       if (t.x > width + 60) t.x = -60;
       if (t.y < -60) t.y = height + 60;
@@ -115,20 +116,20 @@ function animate() {
       t.angle += 0.02;
     }
 
-    // Positional jiggle/glitch displacement (starts subtle, becomes intense)
+    // Subtle initial jiggle that slowly amplifies into chaotic displacement
     const glitchX = (Math.random() - 0.5) * chaos * 8;
     const glitchY = (Math.random() - 0.5) * chaos * 8;
 
-    // Size pulsing scales with idle intensity
+    // Size pulsing slowly expands as time builds
     const scaleNoise = Math.sin(time * (4 + chaos * 8) + t.seed);
     const sizeMultiplier = 1 + scaleNoise * (chaos * 1.8);
     const r = Math.max(3, t.baseR * sizeMultiplier);
 
-    // Strobe frequency increases over time
+    // Strobe starts rare, becomes frequent after several seconds
     const flashStrobe = chaos > 0.15 && Math.sin(time * (10 + chaos * 30) + t.seed) > (1 - chaos * 0.9);
     const lightness = flashStrobe ? 90 : 55;
 
-    // Gradual color transition: pure cyan (185 deg) -> dynamic rainbow spectrum
+    // Smooth color drift: pure electric cyan -> gradual rainbow shifting
     const targetHue = (dynamicHue + i * 15 + t.x * 0.1) % 360;
     const blendedHue = (185 + (targetHue - 185) * chaos + 360) % 360;
 
