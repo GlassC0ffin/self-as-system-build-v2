@@ -15,7 +15,7 @@ function drawTriangle(cx, cy, r, rotation, alpha, color) {
   ctx.rotate(rotation);
   ctx.globalAlpha = alpha;
   ctx.strokeStyle = color;
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 2;
   ctx.beginPath();
   for (let i = 0; i < 3; i++) {
     const angle = (Math.PI * 2 * i) / 3 - Math.PI / 2;
@@ -59,31 +59,36 @@ function animate() {
   currentSpeed *= 0.85;
   smoothSpeed += (currentSpeed - smoothSpeed) * 0.1;
 
-  // Strict 4px/frame speed threshold
   const isMoving = smoothSpeed > 4;
   const chaos = isMoving ? 0 : 1;
 
-  ctx.fillStyle = 'rgba(26, 19, 48, 0.15)';
+  // Dark motion trail
+  ctx.fillStyle = 'rgba(3, 0, 8, 0.2)';
   ctx.fillRect(0, 0, width, height);
 
   const cellW = width / cols;
   const cellH = height / rows;
   const maxR = Math.min(cellW, cellH) * 0.35;
 
+  const dynamicHue = (Date.now() * 0.4) % 360;
+
   for (const cell of cells) {
-    const decayRate = isMoving ? 0.002 : 0.035;
+    const decayRate = isMoving ? 0.002 : 0.04;
     cell.life -= decayRate;
     if (cell.life <= 0) cell.life = 1;
 
     const cx = cell.col * cellW + cellW / 2;
     const cy = cell.row * cellH + cellH / 2;
 
-    const chaosRotation = (1 - cell.life) * Math.PI * (1 + chaos * 8);
+    const chaosRotation = (1 - cell.life) * Math.PI * (1 + chaos * 10);
     const rotation = cell.baseAngle + chaosRotation;
     const r = maxR * (0.3 + cell.life * 0.7);
 
-    const color = chaos > 0 ? '#e17b4a' : '#f2e3dc';
-    const alpha = Math.max(0.15, cell.life);
+    // Cyan grid in motion | Rapid rainbow shift during stillness
+    const color = chaos > 0 
+      ? `hsl(${(dynamicHue + cell.col * 20 + cell.row * 10) % 360}, 100%, 60%)` 
+      : '#00f3ff';
+    const alpha = Math.max(0.25, cell.life);
 
     drawTriangle(cx, cy, r, rotation, alpha, color);
   }
