@@ -9,6 +9,46 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
+// --- WEB AUDIO SYNTHESIS ---
+let audioCtx = null;
+
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+
+function playGlitchSound(chaos) {
+  if (!audioCtx || audioCtx.state !== 'running') return;
+
+  // Probability of glitch noise increases as chaos builds
+  if (Math.random() > chaos * 0.4) return;
+
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  // Erratic pitch jumps: low tones during order, high screeches during chaos
+  const baseFreq = 80 + Math.random() * (chaos * 1800);
+  osc.type = Math.random() > 0.5 ? 'sawtooth' : 'square';
+  osc.frequency.setValueAtTime(baseFreq, audioCtx.currentTime);
+
+  // Short burst duration
+  const duration = 0.02 + Math.random() * (0.05 + chaos * 0.1);
+  const volume = (0.05 + chaos * 0.15) * (Math.random() * 0.8 + 0.2);
+
+  gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
+
 function drawTriangle(cx, cy, r, rotation, alpha, color) {
   ctx.save();
   ctx.translate(cx, cy);
@@ -34,6 +74,7 @@ let currentSpeed = 0;
 let smoothSpeed = 0;
 
 window.addEventListener('mousemove', (e) => {
+  initAudio(); // User interaction initializes audio context for browser autoplay policies
   const dx = e.clientX - lastMouse.x;
   const dy = e.clientY - lastMouse.y;
   currentSpeed = Math.hypot(dx, dy);
@@ -58,8 +99,7 @@ for (let i = 0; i < count; i++) {
 }
 
 let idleFrames = 0;
-// Increased to 600 frames (~10 seconds of full stillness for peak chaos)
-const RAMP_TIME = 600; 
+const RAMP_TIME = 600; // ~10 seconds of stillness for peak chaos
 
 function animate() {
   currentSpeed *= 0.85;
@@ -68,13 +108,17 @@ function animate() {
   const isMoving = smoothSpeed > 4;
 
   if (isMoving) {
-    idleFrames = Math.max(0, idleFrames - 15); // Fast snap back to order when moving
+    idleFrames = Math.max(0, idleFrames - 15);
   } else {
-    idleFrames = Math.min(RAMP_TIME, idleFrames + 1); // Extended, slow-burn chaos build-up
+    idleFrames = Math.min(RAMP_TIME, idleFrames + 1);
   }
 
-  // Smooth chaos factor from 0.0 (movement) to 1.0 (full 10-second idle decay)
   const chaos = idleFrames / RAMP_TIME;
+
+  // Trigger procedural glitch sounds based on current idle chaos intensity
+  if (chaos > 0.05) {
+    playGlitchSound(chaos);
+  }
 
   ctx.fillStyle = 'rgba(3, 0, 8, 0.2)';
   ctx.fillRect(0, 0, width, height);
@@ -86,12 +130,10 @@ function animate() {
     const t = triangles[i];
 
     if (chaos > 0) {
-      // Acceleration ramps up gradually
       const thrust = chaos * chaos * 4;
       t.vx += (Math.random() - 0.5) * thrust;
       t.vy += (Math.random() - 0.5) * thrust;
 
-      // Speed cap scales slowly over the 10-second ramp
       const maxVel = 1.5 + chaos * 22.5;
       const speed = Math.hypot(t.vx, t.vy);
       if (speed > maxVel) {
@@ -103,7 +145,6 @@ function animate() {
       t.y += t.vy;
       t.angle += t.spin * (0.2 + chaos * 3.8);
 
-      // Boundary wrap
       if (t.x < -60) t.x = width + 60;
       if (t.x > width + 60) t.x = -60;
       if (t.y < -60) t.y = height + 60;
@@ -116,20 +157,16 @@ function animate() {
       t.angle += 0.02;
     }
 
-    // Subtle initial jiggle that slowly amplifies into chaotic displacement
     const glitchX = (Math.random() - 0.5) * chaos * 8;
     const glitchY = (Math.random() - 0.5) * chaos * 8;
 
-    // Size pulsing slowly expands as time builds
     const scaleNoise = Math.sin(time * (4 + chaos * 8) + t.seed);
     const sizeMultiplier = 1 + scaleNoise * (chaos * 1.8);
     const r = Math.max(3, t.baseR * sizeMultiplier);
 
-    // Strobe starts rare, becomes frequent after several seconds
     const flashStrobe = chaos > 0.15 && Math.sin(time * (10 + chaos * 30) + t.seed) > (1 - chaos * 0.9);
     const lightness = flashStrobe ? 90 : 55;
 
-    // Smooth color drift: pure electric cyan -> gradual rainbow shifting
     const targetHue = (dynamicHue + i * 15 + t.x * 0.1) % 360;
     const blendedHue = (185 + (targetHue - 185) * chaos + 360) % 360;
 
